@@ -1,0 +1,139 @@
+# Aimlock--- Serviços
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Variáveis de Controle
+local AimEnabled = false
+local CurrentTarget = nil
+local AimSmoothness = 1 -- 1 = Instantâneo
+
+-- --- CRIAÇÃO DA GUI ---
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local TitleLabel = Instance.new("TextLabel")
+local ToggleButton = Instance.new("TextButton")
+local SignatureLabel = Instance.new("TextLabel")
+local UICorner = Instance.new("UICorner")
+local UICornerBtn = Instance.new("UICorner")
+
+-- Configuração da ScreenGui
+ScreenGui.Name = "AimLock_Thi"
+ScreenGui.ResetOnSpawn = false 
+ScreenGui.Parent = game.CoreGui 
+if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+-- Painel Principal (Altura reduzida de 120 para 90)
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+MainFrame.Size = UDim2.new(0, 180, 0, 90) -- Altura menor
+MainFrame.Active = true
+MainFrame.Draggable = true 
+
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+-- Título
+TitleLabel.Parent = MainFrame
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 0, 0, 2)
+TitleLabel.Size = UDim2.new(1, 0, 0, 25)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "AIM LOCK"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 14
+
+-- Botão ON/OFF (Ajustado para o novo tamanho)
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Parent = MainFrame
+ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
+ToggleButton.Position = UDim2.new(0.1, 0, 0.35, 0)
+ToggleButton.Size = UDim2.new(0.8, 0, 0, 35)
+ToggleButton.Font = Enum.Font.GothamBlack
+ToggleButton.Text = "OFF"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 18
+
+UICornerBtn.CornerRadius = UDim.new(0, 6)
+UICornerBtn.Parent = ToggleButton
+
+-- Assinatura "Thi"
+SignatureLabel.Parent = MainFrame
+SignatureLabel.BackgroundTransparency = 1
+SignatureLabel.Position = UDim2.new(0, 0, 0.75, 0)
+SignatureLabel.Size = UDim2.new(1, -8, 0, 20)
+SignatureLabel.Font = Enum.Font.Code
+SignatureLabel.Text = "Thi"
+SignatureLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
+SignatureLabel.TextSize = 10
+SignatureLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+-- --- LÓGICA DO AIM LOCK ---
+
+local function GetClosestTarget()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+    local Mouse = LocalPlayer:GetMouse()
+    local Center = Vector2.new(Mouse.X, Mouse.Y)
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local character = player.Character
+            local humanoid = character:FindFirstChild("Humanoid")
+            
+            if humanoid and humanoid.Health > 0 then
+                local hrp = character.HumanoidRootPart
+                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+                if onScreen then
+                    local distance = (Vector2.new(screenPos.X, screenPos.Y) - Center).Magnitude
+                    if distance < shortestDistance then
+                        closestPlayer = hrp
+                        shortestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+RunService.RenderStepped:Connect(function()
+    if AimEnabled and CurrentTarget and CurrentTarget.Parent then
+        local MyChar = LocalPlayer.Character
+        if MyChar and MyChar:FindFirstChild("HumanoidRootPart") then
+            local MyRoot = MyChar.HumanoidRootPart
+            -- Trava apenas a rotação horizontal (X e Z)
+            local LookPosition = Vector3.new(CurrentTarget.Position.X, MyRoot.Position.Y, CurrentTarget.Position.Z)
+            MyRoot.CFrame = CFrame.lookAt(MyRoot.Position, LookPosition)
+        end
+    end
+end)
+
+ToggleButton.MouseButton1Click:Connect(function()
+    AimEnabled = not AimEnabled
+    if AimEnabled then
+        CurrentTarget = GetClosestTarget()
+        if CurrentTarget then
+            ToggleButton.Text = "ON"
+            ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 180, 50) 
+        else
+            AimEnabled = false
+            ToggleButton.Text = "NO TARGET"
+            task.wait(0.5)
+            ToggleButton.Text = "OFF"
+        end
+    else
+        CurrentTarget = nil
+        ToggleButton.Text = "OFF"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+    AimEnabled = false
+    CurrentTarget = nil
+end)
